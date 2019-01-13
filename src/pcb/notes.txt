@@ -1,0 +1,242 @@
+328p-pu
+http://ww1.microchip.com/downloads/en/DeviceDoc/Atmel-7810-Automotive-Microcontrollers-ATmega328P_Datasheet.pdf
+12-22 pF for clock caps
+max 20 MHz clock crystal (Arduino Uno uses 16 MHz)
+10 kOhms (?)
+18-22 pF: https://www.arduino.cc/en/Tutorial/ArduinoToBreadboard
+
+pins 9 and 10 as clock?
+https://www.electroschematics.com/wp-content/uploads/2014/11/atmega328p-programmable-pins.png
+https://www.arduino.cc/en/Main/Standalone
+
+Audio shield schematic
+https://cdn-learn.adafruit.com/assets/assets/000/010/163/original/wave11schem.png
+https://learn.adafruit.com/adafruit-wave-shield-audio-shield-for-arduino?view=all
+
+shield schematic kicad
+https://www.thingiverse.com/thing:9630
+
+pin 22 tied to8
+https://github.com/KiCad/kicad-symbols/issues/786
+
+pin map 328p to uno shield
+https://www.arduino.cc/en/Hacking/PinMapping168
+
+7-segment LED driver HT16K33
+https://cdn-learn.adafruit.com/assets/assets/000/036/298/original/led_matrix_schem.png?1476209216
+https://www.adafruit.com/product/1427
+
+7-segment green, no backpack
+https://www.adafruit.com/product/1266
+pinout datasheet pdf
+common cathode: KW4-12041CUGA
+https://cdn-shop.adafruit.com/datasheets/1266datasheet.pdf
+
+ds3231 real time clock
+https://learn.adafruit.com/adafruit-ds3231-precision-rtc-breakout/overview
+
+switch pdf
+https://cdn-shop.adafruit.com/datasheets/B3F-1000-Omron.pdf
+BSF-10XX
+
+wave shieldfoot print
+https://github.com/Alarm-Siren/arduino-kicad-library/tree/master/Arduino.pretty
+
+usb-c header:
+https://www.digikey.com/product-detail/en/amphenol-icc-commercial-products/12401610E4-2A/12401610E4-2ACT-ND/5775520
+
+HT16K33 footprint
+https://learn.adafruit.com/adafruit-led-backpack/downloads
+100 mil spacing on eletrical holes
+structural holes are 0.1" diameter from image analysis - Adafruit eagle files don't load in v9.2.2 - "not eagle file: line 8"
+x: {-.35,+.35}
+y: {-.05,-.15,-.25,-.35,-.45,-.55,-.65
+
+ds3231 rtc footprint
+https://cdn-learn.adafruit.com/assets/assets/000/030/356/medium800/components_print.png?1454534114
+x: -.35, -.25 ...
+y: +.25
+NPLC:
+x: -.35, +.35
+y: -.25
+diam 0.1, copper 0.13
+outline:
+-.45,-.35 ; +.45,-.35 ; +.45,+.35 ; -.45,+.35
+
+KW4-12041CUGA 7-segment
+x: -2.185, +2.185
+y: -.3 -.2 -.1 0 .1 .2 .3
+outline:
+-2.365,-0.805 ; 2.365,-0.805 ; 2.365,0.805 ; -2.365,0.805
+
+resistors
+tht through hole radial
+https://www.youtube.com/watch?v=Ghv0bGiZFL8
+resistor: 1/4 watt, 6mm long, horizontal, 7.62mm 207
+Resistors_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm
+
+crystal
+16 mhz
+tht
+0.555mm hole diameter (0.022") --> 0.3" hole diam, 0.762mm
+x: -5.75, 5.75mm ; 0.226"
+y: -2.5, 2.5mm   ; 0.098"
+hx: -2.44, 2.44mm; 0.096"
+9B-16.000MBBK-B
+https://www.digikey.com/product-detail/en/txc-corporation/9B-16.000MBBK-B/887-2015-ND/3522089
+Crystal_HC49-4H_Vertical ?
+has hole 4.88 mm apart, 0.8mm hole size
+12.1 x and 5.6 y mm keep out zone
+in effect, about 0.3mm all around keep out zone
+
+eletrolytic caps are polarized
+ceramic caps are either way
+22 pF
+https://www.digikey.com/product-detail/en/vishay-bc-components/K220J15C0GF5TL2/BC1005CT-ND/286627
+radial
+THT
+D5mm diam
+P2mm pin spacing
+
+miscount on 7-segment led pincount: WAS 14, IS 16
+p1 was x -2.185, y -.3; IS x -2.185, y -.35
+
+est size
+4.8" x 2.1"
+122 x 53 mm
+$32 shipto US, 5 wkday delivery
+https://www.allpcb.com/online_pcb_quote.html?y=122&x=53&num=5&countNumer=5&txtSelNum=&Layersquote=2&Thicknessquote=1.6
+
+extra notes:
+240 px for 0.8"
+30 px for 0.1" diam
+11 px for 0.03" hole
+
+refactored USB-C to B to have through-hole parts (avoid surface mount)
+https://www.digikey.com/product-detail/en/on-shore-technology-inc/USB-B1HSB6/ED2983-ND/2677744
+refactored Uno shield pinout to match between footprint and schemtaic symbol
+reconnected digikey footprint library to schematic fornetlist generation
+remove ISP connectoron arduino shield to free up space
+need to allocate space for speaker...
+
+oshpark https://www.youtube.com/watch?v=dM5b_s2ysVk
+2 layer board
+6mil trace clearance
+6mil wide trace
+drill hole 10 mil orlarger
+annular ring 5 mil
+speaker has 1.81" diameter
+0.6" thick
+
+so add 1.85" to width...
+6.7" x 2.1"
+170 x 53  
+$34 to US
+
+https://www.allpcb.com/sns/guide-to-create-a-pcb-with-kicad_4832.html
+The design rules for Seeed Studio can be considered the least common denominator — if you can make a design with these rules, you can have your board manufactured everywhere. Practically, this means
+a minimum trace width of 10mil,
+a minimum separation of 10mil,
+and a minimum hole size of 0.3mm. 
+
+https://jlcpcb.com/quote
+$23 to US
+
+recommendation to model future boards in altim
+
+design rules used for all pcb
+https://www.allpcb.com/standard_pcb_manufacturing_capability.html
+but descriptions are guess work
+global:
+min track width default 0.00787 in
+min via diameter 0.0157 in
+min via drill 0.0118 in
+net class editor
+clearance 0.01 in CHANGED
+track width 0.01 in CHANGED
+via dia 0.03149 in
+via drill 0.0157 in
+*CHANGED based on https://www.youtube.com/watch?v=dM5b_s2ysVk&t=256s
+
+flip to back with 'f', then rotate 'r'
+
+set buttons 0.5" center-to-center apart, akin to home alarm clock
+0.4" diameter clearance around button (0.2" radius)
+
+BOM buy
+328p, crystal, cap, usb header, standoff (black arduino-style) headers, 328p arduino standoff
+edges: x 2.3, y 2.85
+x 10.1, y 4.95
+size: 7.8" x 2.1"
+
+may want to add mechanical mounting hole to button-side of board...
+kicad seems to be lacking it auto-route options...
+
+NPLC holespacing: 
+1: 5.15 x, 2.975 y top-left
+2: 8.9 x, 4.825 y bottom-right
+
+current draw of full designn?
+need to buy support hardware, maybe screws
+
+reorder pinouts for buttons to make routing easier
+S1 15
+S2 17
+S3 18
+S4 23
+S5 24
+S6 14
+S7 13
+S8 12
+
+re-added mounting holes after trace cleaner removed them as unnecessary
+
+standoffs (black arduino-style) headers non-stacking
+arduino shield
+  6-pin, 2x 8-pin, 10-pin
+LED display
+  2x 8-pin
+led driver
+  2x 14-pin
+rtc
+  8-pin
+
+BOM (4x attrition)
+4x resistor in-house
+32x button in-house
+4x $2.14 328p-pu https://www.digikey.com/product-detail/en/microchip-technology/ATMEGA328P-PU/ATMEGA328P-PU-ND/1914589
+10x $0.275 crystal https://www.digikey.com/product-detail/en/txc-corporation/9B-16.000MBBK-B/887-2015-ND/3522089
+10x $0.179 cap https://www.digikey.com/product-detail/en/vishay-bc-components/K220J15C0GF5TL2/BC1005CT-ND/286627
+4x $0.58 usb header https://www.digikey.com/product-detail/en/on-shore-technology-inc/USB-B1HSB6/ED2983-ND/2677744
+4x $0.34 328p standoff https://www.digikey.com/product-detail/en/on-shore-technology-inc/ED281DT/ED3050-5-ND/4147600
+4x $0.52 6-pin https://www.digikey.com/product-detail/en/sullins-connector-solutions/PPTC061LFBN-RC/S7004-ND/810145
+20x $0.608 8-pin https://www.digikey.com/product-detail/en/sullins-connector-solutions/PPTC081LFBN-RC/S7006-ND/810147
+4x $0.65 10-pin https://www.digikey.com/product-detail/en/sullins-connector-solutions/PPTC101LFBN-RC/S7008-ND/810149
+10x $0.803 14-pin https://www.digikey.com/product-detail/en/sullins-connector-solutions/PPTC141LFBN-RC/S7012-ND/810152
+
+#	Quantity	Part Number	Manufacturer Part Number	Description	Customer Reference	Backorder	Unit Price	Extended Price
+1	4	ATMEGA328P-PU-ND	ATMEGA328P-PU	IC MCU 8BIT 32KB FLASH 28DIP		0	2.14000	8.56
+2	10	887-2015-ND	9B-16.000MBBK-B	CRYSTAL 16.0000MHZ 20PF T/H		0	0.27500	2.75
+3	10	BC1005CT-ND	K220J15C0GF5TL2	CAP CER 22PF 50V C0G/NP0 RADIAL		0	0.17900	1.79
+4	4	ED2983-ND	USB-B1HSB6	CONN RCPT TYPEB 4POS R/A		0	0.58000	2.32
+5	4	ED3050-5-ND	ED281DT	CONN IC DIP SOCKET 28POS TIN		0	0.34000	1.36
+6	4	S7004-ND	PPTC061LFBN-RC	CONN HDR 6POS 0.1 TIN PCB		0	0.52000	2.08
+7	20	S7006-ND	PPTC081LFBN-RC	CONN HDR 8POS 0.1 TIN PCB		0	0.60800	12.16
+8	4	S7008-ND	PPTC101LFBN-RC	CONN HDR 10POS 0.1 TIN PCB		0	0.65000	2.60
+9	10	S7012-ND	PPTC141LFBN-RC	CONN HDR 14POS 0.1 TIN PCB		0	0.80300	8.03
+
+final board size:
+7.8" x 2.1"
+198 mm x 53 mm
+
+-- as delivered
+should have version # on board
+holes on rtc and led driver rather tight
+no outer outline around 328p when connector saver is mounted
+"ALL-" label on back silk screen is new
+designed such that power header has to be below Audio shield, can't make more compace
+would be nice to have test point power headers
+would be nice to have power indicator LED
+need debug header for communicating out of processor to show terminal of what the processor sees
+focus on module troubleshooting builds: build for each interface
+label important pins, SDA, SCL on silk screen 

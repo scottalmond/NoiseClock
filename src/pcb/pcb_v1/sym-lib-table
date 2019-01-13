@@ -1,0 +1,4 @@
+(sym_lib_table
+  (lib (name arduino_shieldsNCL)(type Legacy)(uri D:/Projects/ClockNoise/git/NoiseClock/lib/Arduino_Shield_Modules_for_KiCad_V3/arduino_shieldsNCL.lib)(options "")(descr ""))
+  (lib (name dk_Tactile-Switches)(type Legacy)(uri D:/Projects/ClockNoise/git/NoiseClock/lib/digikey-kicad-library-master/digikey-symbols/dk_Tactile-Switches.lib)(options "")(descr ""))
+)
