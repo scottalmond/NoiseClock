@@ -240,3 +240,14 @@ would be nice to have power indicator LED
 need debug header for communicating out of processor to show terminal of what the processor sees
 focus on module troubleshooting builds: build for each interface
 label important pins, SDA, SCL on silk screen 
+
+-- to do, test scripts
+actuate all digital/analog I/O with PWM according to ID
+- measure voltage with DMM for pin asstgnment
+- I2C checkout
+https://playground.arduino.cc/Main/I2cScanner
+
+--
+
+populate mallest height compoentns first
+holes connected to a ground plane sink a lot of soldering iron heat, so it's hard to solder pins to them
