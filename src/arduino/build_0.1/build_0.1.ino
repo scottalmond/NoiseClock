@@ -1,3 +1,8 @@
+//to do: make flow chart of button press states
+//to do: make block diagram of major interfaces to peripreals: GPIO to buttons, SPI to wav shield, i2c, etc
+//to do: store EEPROM brightness and song selection
+//to do: temp display index of song playing when changed
+
 /**
  * Project requirements:
  * 1. Display the 12-hour time on a large display
@@ -48,9 +53,9 @@
  *   hold_event_fired()
  */
 struct Button{
-  int pin;
-  bool is_up;
-  bool is_tap;
+  int pin; //pin number assignment according to Duemilanove
+  bool is_up; //by default, pin is NOT depressed, is_up=TRUE
+  bool is_tap; //
   unsigned long start_transition_ms; //millis() time when the button transitioned from UP to PRESSED
   unsigned long last_hold_event_ms; //millis() time when the last HOLD event fired
   unsigned long hold_event_gap_ms; //number of milliseconds between HOLD events being fired
@@ -70,9 +75,12 @@ WaveHC wave;      // This is the only wave (audio) object, since we will only pl
 
 uint8_t dirLevel; // indent level for file/dir names    (for prettyprinting)
 dir_t dirBuf;     // buffer for directory reads
-Button button_wav={8,0,0,false,false,500};
+Button button_wav_dec={ 9,0,0,false,false,500};//change which wav file is looping from the list on the SD card
+Button button_wav_inc={11,0,0,false,false,500};
 uint8_t wav_selection=0;//load from RTC SRAM on boot
-bool loop_this_song=true;
+//bool loop_this_song=true;
+bool flag_go_to_prev_song=false;
+bool flag_go_to_next_song=false;
 
 //----- Clock Display -----
 #include <Wire.h>
@@ -81,7 +89,8 @@ bool loop_this_song=true;
 
 Adafruit_AlphaNum4 alpha4 = Adafruit_AlphaNum4();
 char displaybuffer[5] = {' ', ' ', ' ', ' ',' '};
-Button button_brightness={9,0,0,false,false,300};
+Button button_brightness_dec={12,0,0,false,false,300};//change the 7-segment LED illumination brightness
+Button button_brightness_inc={A0,0,0,false,false,300};
 int rtc_minute=0;//load from RTC on boot
 int rtc_hour=0;//load from RTC on boot
 bool is_display_update=true;//only push new state to rtc when it changes
@@ -89,11 +98,14 @@ int brightness=15;//load from RTC SRAM on boot
 
 //----- Real Time Clock -----
 #include <Wire.h>
-#include "RTClib.h"
+#include "RTClib.h" //RTC = Real Time Clock
 RTC_DS3231 rtc;
-Button button_minute={6,0,0,false,false,100};
-Button button_hour={7,0,0,false,false,300};
-unsigned long last_update_s=0;//only check RTC once a second for a time change to minimize processing time (maximize time available for sound buffering)
+Button button_minute_dec={A1,0,0,false,false,100};
+Button button_minute_inc={ 8,0,0,false,false,100};
+Button button_hour_dec={7,0,0,false,false,300};
+Button button_hour_inc={6,0,0,false,false,300};
+unsigned long last_update_s=0;//storage for the last Arduino time that an RTC timestamp was pushed live to 7-segment display
+//only check RTC roughly once a second for a time change to minimize processing time (maximize time available for sound buffering and reduce risk of sound gap when looping)
 
 
 /*
@@ -185,38 +197,17 @@ void play(FatReader &dir) {
       if (!wave.create(file)) {            // Figure out, is it a WAV proper?
         putstring(" Not a valid WAV");     // ok skip it
       } else {
-        loop_this_song=true;
-        while(loop_this_song)
+        flag_go_to_prev_song=false;
+        flag_go_to_next_song=false;
+        while(loop_this_song())
         {
           wave.play();
-          while(wave.isplaying and loop_this_song)
+          while(wave.isplaying and loop_this_song())
           {
             updateButtonState();
             updateTimeDisplay();
-            /*if(Serial.available())
-            {
-              char c = Serial.read();
-              if (isprint(c))
-              {
-                  displaybuffer[0] = displaybuffer[1];
-                  displaybuffer[1] = displaybuffer[2];
-                  displaybuffer[2] = displaybuffer[3];
-                  displaybuffer[3] = displaybuffer[4];
-                  displaybuffer[4] = c;
-                 
-                  // set every digit to the buffer
-                  alpha4.writeDigitAscii(0, displaybuffer[0]);
-                  alpha4.writeDigitAscii(1, displaybuffer[1]);
-                  alpha4.writeDigitAscii(2, displaybuffer[2]);
-                  alpha4.writeDigitAscii(3, displaybuffer[3]);
-                  alpha4.writeDigitAscii(4, displaybuffer[4]);
-                 
-                  // write it out!
-                  alpha4.writeDisplay();
-              }
-            }*/
           }
-          if(loop_this_song)
+          if(loop_this_song())
             wave.seek(0);
           else
             wave.stop();
@@ -237,6 +228,11 @@ void play(FatReader &dir) {
       }
     }
   }
+}
+
+void loop_this_song()
+{
+  return !flag_go_to_prev_song && !flag_go_to_next_song;
 }
 
 void updateButtonState()
@@ -300,7 +296,7 @@ bool updateButton(Button *button)
   return getIsUpdate(button);
 }
 
-//if the user pressed the button brielfy, but longer than a debounce DEBOUNCE_MS, return true
+//if the user pressed the button briefly, but longer than a debounce DEBOUNCE_MS, return true
 //if the user holds (HOLD_START_MS) the button down, report a true state update at the configred rate HOLD_PRESSED_MS
 //else return false
 bool getIsUpdate(Button *button)

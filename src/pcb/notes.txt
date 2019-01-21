@@ -249,5 +249,21 @@ https://playground.arduino.cc/Main/I2cScanner
 
 --
 
-populate mallest height compoentns first
+populate smallest height compoentns first
 holes connected to a ground plane sink a lot of soldering iron heat, so it's hard to solder pins to them
+noting tight tolerance between usb-b header and variable resistor on audio shield, appears idemtical to arduino duemilanove clearance
+
+finding: the SPI lines were not connected (due to unclear usage in schematic by Adafuit: overlapping text)
+so need to add bodge wires:
+328p p17 to D11 MOSI
+328p p18 to D12 MISO
+328p p19 to D13 SCK
+
+which now causes a problem with buttons S2 and S3 because they use pins D11 and D12 for input
+need to reroute with more bodge wires:
+328p p25 to S2 A2 BR-
+328p p26 to S3 A3 MIN-
+and cut signal traces to S2 and S3
+
+in-circuit programming would make things infinitely easier
+7-segment displayappears to be too low, may be 50 mil due to half-100-mil pin offset when re-doing 7-segment pinout
