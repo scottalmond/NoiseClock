@@ -138,15 +138,15 @@ void setup(){
   alpha4.begin(0x70);  // pass in the address
   alpha4.clear();
   alpha4.writeDisplay();
-  brightness=EEPROM.read(EEPROM_BRIGHTNESS_ADDRESS);//assume value is correct, no limit checking
-  alpha4.setBrightness(brightness);
+  brightness=EEPROM.read(EEPROM_BRIGHTNESS_ADDRESS);//fetch brightness value stored from previous boot cycle
+  alpha4.setBrightness(brightness);//assume value is correct, no limit checking
 
   //----- Buttons -----
-  //assign pull ups to all pins, then read state: HIGH is_released, LOW is_pressed
+  //assign pull ups to all pins.  Button state can be read as: HIGH is_released, LOW is_pressed
   for(int iter=0;iter<NUM_BUTTONS;iter++) pinMode(button_list[iter].pin,INPUT_PULLUP);
 
-  //----- Audio Shield -----
-  seek_song_index=EEPROM.read(EEPROM_SONG_ADDRESS);//assume value is correct, no limit checking
+  //----- Audio -----
+  seek_song_index=EEPROM.read(EEPROM_SONG_ADDRESS);//Load song selection from last boot cycle.  Assume value is correct, no limit checking
   card.init();
   card.partialBlockRead(true);
   // Now find a FAT partition
@@ -172,31 +172,14 @@ void loop() {
 }
 
 /////////////////////////////////// HELPERS
-
-/*
- * play recursively - possible stack overflow if subdirectories too nested
- */
 void play(FatReader &dir) {
   FatReader file;
   int curr_song_index=0;//index of the song currently being inspected from SD card
   while (dir.readDir(dirBuf) > 0) {    // Read every file in the directory one at a time
   
     // Skip it if not a subdirectory and not a .WAV file
-    if (!DIR_IS_SUBDIR(dirBuf)
-         && strncmp_P((char *)&dirBuf.name[8], PSTR("WAV"), 3)) {
-      continue;
-    }
+    if (!DIR_IS_SUBDIR(dirBuf) && strncmp_P((char *)&dirBuf.name[8], PSTR("WAV"), 3)) continue;
 
-    Serial.println();            // clear out a new line
-    
-    for (uint8_t i = 0; i < dirLevel; i++) {
-       Serial.write(' ');       // this is for prettyprinting, put spaces in front
-    }
-    if (!file.open(vol, dirBuf)) {        // open the file in the directory
-      //error("file.open failed");          // something went wrong
-      Serial.println("file.open failed");
-    }
-    
     if (!file.isDir()) {
       songSeekLimitCheck();
       if(curr_song_index==seek_song_index)//if looking at target song, then play it
@@ -230,10 +213,20 @@ void play(FatReader &dir) {
           }
         }
       }
-      curr_song_index++;//increment when new song found
+      curr_song_index++;//increment index pointer after completing current song
     }
   }
-  NUM_SONGS=curr_song_index;
+  NUM_SONGS=curr_song_index;//after first run-through of all songs, store the number of all songs on disk
+}
+
+//ensure seek_song_index is in range, if possible
+void songSeekLimitCheck()
+{
+  if(NUM_SONGS>=0)
+  {
+    if(seek_song_index<0) seek_song_index=NUM_SONGS-1;
+    if(seek_song_index>=NUM_SONGS) seek_song_index=0;//if seek_index is invalid, set it to a valid value - may require a loop through all songs on SD card first
+  }
 }
 
 bool loop_this_song()
@@ -241,7 +234,15 @@ bool loop_this_song()
   return !flag_is_change_song;
 }
 
-//given a brightness level, push it live to 7-segment display, and also save it to storeage EEPROM
+//go to next/prev song by setting corresponding flags
+void changeSong(bool is_inc)
+{
+  last_song_select_ms=millis();
+  flag_is_change_song=true;
+  seek_song_index+=is_inc?1:-1;
+}
+
+//given a brightness level, push it live to 7-segment display, and also save it to EEPROM storage
 void addBrightness(bool is_inc)
 {
   brightness+=is_inc?1:-1;
@@ -269,24 +270,6 @@ void addHour(bool is_inc)
   DateTime future (now + TimeSpan(0,is_inc?1:-1,0,0));//increment 1 hour, zero out the seconds
   rtc.adjust(future);
   is_display_update=true;
-}
-
-void changeSong(bool is_inc)
-{
-  last_song_select_ms=millis();
-  flag_is_change_song=true;
-  seek_song_index+=is_inc?1:-1;
-  songSeekLimitCheck();
-}
-
-//ensure seek_song_index is in range, if possible
-void songSeekLimitCheck()
-{
-  if(NUM_SONGS>=0)
-  {
-    if(seek_song_index<0) seek_song_index=NUM_SONGS-1;
-    if(seek_song_index>=NUM_SONGS) seek_song_index=0;//if seek_index is invalid, set it to a valid value - may require a loop through all songs on SD card first
-  }
 }
 
 //check state of all buttons, if any has been tapped or is being held, call the respective helper function for that button
@@ -337,9 +320,9 @@ bool updateButton(Button *button)
   return getIsUpdate(button);
 }
 
-//if the user pressed the button briefly, but longer than a debounce DEBOUNCE_MS, return true
-//if the user holds (HOLD_START_MS) the button down, report a true state update at the configred rate HOLD_PRESSED_MS
-//else return false
+//if the user pressed the button briefly, but longer than debounce DEBOUNCE_MS, return TRUE
+//if the user holds (HOLD_START_MS) the button down, report a TRUE state update at the configred rate HOLD_PRESSED_MS
+//else return FALSE
 bool getIsUpdate(Button *button)
 {
   unsigned long now_ms=millis();
@@ -353,17 +336,11 @@ bool getIsUpdate(Button *button)
     {//user tapped the button
       (*button).is_tap=true;
       state_update=true;
-      //Serial.print("A");
     }
     if(start_elapsed_ms>HOLD_START_MS && hold_elapsed_ms>HOLD_PRESSED_MS)
     {//user is holding down the button
       (*button).last_hold_event_ms=now_ms;
       state_update=true;
-      //Serial.print("B ");
-      //Serial.print(start_elapsed_ms,DEC);
-      //Serial.print(" ");
-      //Serial.print(hold_elapsed_ms,DEC);
-      //Serial.print(" ");
     }
   }
   return state_update;
@@ -381,10 +358,10 @@ void songIndexDisplay()
 {
   if(is_display_update && flag_is_index_visible_to_user)
   {
-    int carry=seek_song_index+1;//use temp variable and shave off decimal MSB
+    int carry=seek_song_index+1;//use temp variable and shave off decimal MSB to display
     alpha4.writeDigitAscii(4,0);//turn off colon
-    bool is_zero=carry/1000==0;
-    alpha4.writeDigitAscii(0,is_zero?' ':((carry/1000)+'0'));
+    bool is_zero=carry/1000==0;//hide leading zeros
+    alpha4.writeDigitAscii(0,is_zero?' ':((carry/1000)+'0'));//MSB
     carry-=1000*(carry/1000);
     is_zero=is_zero && (carry/100==0);
     alpha4.writeDigitAscii(1,is_zero?' ':((carry/100)+'0'));
@@ -392,12 +369,12 @@ void songIndexDisplay()
     is_zero=is_zero && (carry/10==0);
     alpha4.writeDigitAscii(2,is_zero?' ':((carry/10)+'0'));
     carry-=10*(carry/10);
-    alpha4.writeDigitAscii(3,carry+'0');
+    alpha4.writeDigitAscii(3,carry+'0');//LSB
     alpha4.writeDisplay();
     is_display_update=false;
   }
   if(flag_is_index_visible_to_user && millis()>(last_song_select_ms+INDEX_USER_DISPLAY_MS))
-  {
+  { //when done displaying the song index, set flags to display time
     flag_is_index_visible_to_user=false;
     is_display_update=true;
   }
@@ -408,7 +385,7 @@ void updateTimeDisplay()
 {
   unsigned long time_ms=millis();
   if(time_ms/1000 != last_update_s)
-  {//fetch time
+  {//fetch time from RTC when local Arduino time reports a change in the second (check RTC at 1 Hz without worring about 50-day roll-over)
     DateTime now = rtc.now();
     if(now.minute() != rtc_minute) is_display_update=true;//if minute changed, then push new state to display
     rtc_hour=now.hour();
@@ -426,7 +403,7 @@ void updateTimeDisplay()
     alpha4.writeDigitAscii(1,hour_one+'0');
     alpha4.writeDigitAscii(2,minute_ten+'0');
     alpha4.writeDigitAscii(3,minute_one+'0');
-    alpha4.writeDigitAscii(4,1);//turn on colon in center of screen
+    alpha4.writeDigitAscii(4,1);//turn ON colon in center of screen
     alpha4.writeDisplay();
   }
   is_display_update=false;

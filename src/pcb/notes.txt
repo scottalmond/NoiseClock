@@ -272,6 +272,7 @@ design consideration for the future: where is the center of mass?
 --
 //to do: make flow chart of button press states for /doc/
 //to do: make block diagram of major interfaces to peripreals: GPIO to buttons, SPI to wav shield, i2c, etc
+//to do: display state transition diagram for time and song index
 
 
 /**
