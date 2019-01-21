@@ -267,3 +267,41 @@ and cut signal traces to S2 and S3
 
 in-circuit programming would make things infinitely easier
 7-segment displayappears to be too low, may be 50 mil due to half-100-mil pin offset when re-doing 7-segment pinout
+design consideration for the future: where is the center of mass?
+
+--
+
+/**
+ * Project requirements:
+ * 1. Display the 12-hour time on a large display
+ *    1.1. Upon application of power to the unit, the clock shall display the last user-configured time without any user input
+ *    1.2. In response to a user command, the clock shall adjust the hour and minute
+ *    1.3. In response to a user command, the brightness of the screen shall be changed
+ *    1.4. Upon application of power to the unit, the screen shall appear at the last user-configured brightness level
+ * 2. Play a user-selectable sound
+ *    2.1. When no headphones are installed in the unit, audio shall play audio from the speaker
+ *    2.2. When headphones are install in the unit, audio shall play from the headphones while the speaker is silenced
+ *    2.3. In response to a user command, the next/previous audio file shall be played
+ *    2.4. In response to a user command, the unit shall play the audio stream at a higher/lower volume
+ *    2.5. Upon application of power to the unit, the last user-selected audio file shall be played
+ *    2.6. When audio is played from the unit, the audio file shall loop indefinitely
+ * 
+ * Implementation approach:
+ * 1. Use an Arduino Nano or equivalent 328p processor
+ *    1.1. Arduino Nano has a small form factor
+ *    1.2. Arduino Nano has a fast boot up time vs RPi
+ *    1.3. 328p is the minimum size needed for the SD card player code
+ * 2. Use a Real Time Clock to retain the time between hard resets
+ *    2.1. Using TBD library
+ * 3. Use a 2.3" display and associated driver chip
+ *    3.1. Using TBD library
+ * 4. Use buttons for user input
+ *    4.1. Audio file +, Audio file -
+ *    4.2. Brightness +, Brightness -
+ *    4.3. Hour +, Hour -
+ *    4.4. Minute +, Minute -
+ * 5. Use Arduino audio shield and SD card
+ *    5.1. Create new audio files by removing SD card and installing in PC.  .wav files must be in TBD format
+ *    5.2. Using TBD library
+ */
+

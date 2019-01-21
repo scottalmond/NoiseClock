@@ -8,7 +8,7 @@
 //115200 baud serial output, 5 Hz
 
 const int BUTTON_COUNT=8;
-const int BUTTON_PINS[BUTTON_COUNT]={9,11,12,A0,A1,8,7,6};
+const int BUTTON_PINS[BUTTON_COUNT]={9,A2,A3,A0,A1,8,7,6};
 //S1 dec song, S2 inc song
 //S3 dec brightness, S4 inc brightness
 //S5 dec minute, S6 inc minute

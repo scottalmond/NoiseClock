@@ -1,41 +1,8 @@
-//to do: make flow chart of button press states
+//to do: make flow chart of button press states for /doc/
 //to do: make block diagram of major interfaces to peripreals: GPIO to buttons, SPI to wav shield, i2c, etc
-//to do: store EEPROM brightness and song selection
-//to do: temp display index of song playing when changed
 
-/**
- * Project requirements:
- * 1. Display the 12-hour time on a large display
- *    1.1. Upon application of power to the unit, the clock shall display the last user-configured time without any user input
- *    1.2. In response to a user command, the clock shall adjust the hour and minute
- *    1.3. In response to a user command, the brightness of the screen shall be changed
- *    1.4. Upon application of power to the unit, the screen shall appear at the last user-configured brightness level
- * 2. Play a user-selectable sound
- *    2.1. When no headphones are installed in the unit, audio shall play audio from the speaker
- *    2.2. When headphones are install in the unit, audio shall play from the headphones while the speaker is silenced
- *    2.3. In response to a user command, the next/previous audio file shall be played
- *    2.4. In response to a user command, the unit shall play the audio stream at a higher/lower volume
- *    2.5. Upon application of power to the unit, the last user-selected audio file shall be played
- *    2.6. When audio is played from the unit, the audio file shall loop indefinitely
- * 
- * Implementation approach:
- * 1. Use an Arduino Nano or equivalent 328p processor
- *    1.1. Arduino Nano has a small form factor
- *    1.2. Arduino Nano has a fast boot up time vs RPi
- *    1.3. 328p is the minimum size needed for the SD card player code
- * 2. Use a Real Time Clock to retain the time between hard resets
- *    2.1. Using TBD library
- * 3. Use a 2.3" display and associated driver chip
- *    3.1. Using TBD library
- * 4. Use buttons for user input
- *    4.1. Audio file +, Audio file -
- *    4.2. Brightness +, Brightness -
- *    4.3. Hour +, Hour -
- *    4.4. Minute +, Minute -
- * 5. Use Arduino audio shield and SD card
- *    5.1. Create new audio files by removing SD card and installing in PC.  .wav files must be in TBD format
- *    5.2. Using TBD library
- */
+
+
 
 //----- Buttons -----
 /**
@@ -45,7 +12,7 @@
  *   The button is not pressed
  * Button is pressed:
  *   start_transition_ms = millis()
- * If buton is held down and DEBOUNCE_MS elapses:
+ * If button is held down and DEBOUNCE_MS elapses:
  *   tap_event_fired()
  * If button is held down and HOLD_START_MS passes:
  *   hold_event_fired()
@@ -59,6 +26,18 @@ struct Button{
   unsigned long start_transition_ms; //millis() time when the button transitioned from UP to PRESSED
   unsigned long last_hold_event_ms; //millis() time when the last HOLD event fired
   unsigned long hold_event_gap_ms; //number of milliseconds between HOLD events being fired
+};
+
+const int NUM_BUTTONS=8;
+Button button_list[NUM_BUTTONS]={
+  { 9,0,0,false,false,500},//change which wav file is looping from the list on the SD card
+  {A2,0,0,false,false,500},//song inc
+  {A3,0,0,false,false,300},//change the 7-segment LED illumination brightness
+  {A0,0,0,false,false,300},//brightness inc
+  {A1,0,0,false,false,100},//minute dec
+  { 8,0,0,false,false,100},//minute inc
+  { 7,0,0,false,false,300},//hour dec
+  { 6,0,0,false,false,300} //hour inc
 };
 
 unsigned long DEBOUNCE_MS=100;//how long to wait until performing the action requested by the user to avoid debouncing artifacts
@@ -75,12 +54,18 @@ WaveHC wave;      // This is the only wave (audio) object, since we will only pl
 
 uint8_t dirLevel; // indent level for file/dir names    (for prettyprinting)
 dir_t dirBuf;     // buffer for directory reads
-Button button_wav_dec={ 9,0,0,false,false,500};//change which wav file is looping from the list on the SD card
-Button button_wav_inc={11,0,0,false,false,500};
+const int BUTTON_SONG_DEC=0;
+const int BUTTON_SONG_INC=1;
 uint8_t wav_selection=0;//load from RTC SRAM on boot
 //bool loop_this_song=true;
-bool flag_go_to_prev_song=false;
-bool flag_go_to_next_song=false;
+bool flag_is_change_song=false;
+bool flag_is_index_visible_to_user=false;
+unsigned long last_song_select_ms=0;//time that the last song dec/inc was selected
+unsigned long INDEX_USER_DISPLAY_MS=1000;//nunmber of milliseconds to display the song index before displaying the time
+int EEPROM_SONG_ADDRESS=0;
+int seek_song_index=-1;
+int NUM_SONGS=-1;//total number of songs on disk: not known until booted up
+bool is_booting=true;//don't display the song index on boot
 
 //----- Clock Display -----
 #include <Wire.h>
@@ -89,29 +74,33 @@ bool flag_go_to_next_song=false;
 
 Adafruit_AlphaNum4 alpha4 = Adafruit_AlphaNum4();
 char displaybuffer[5] = {' ', ' ', ' ', ' ',' '};
-Button button_brightness_dec={12,0,0,false,false,300};//change the 7-segment LED illumination brightness
-Button button_brightness_inc={A0,0,0,false,false,300};
+const int BUTTON_BRIGHTNESS_DEC=2;
+const int BUTTON_BRIGHTNESS_INC=3;
 int rtc_minute=0;//load from RTC on boot
 int rtc_hour=0;//load from RTC on boot
 bool is_display_update=true;//only push new state to rtc when it changes
-int brightness=15;//load from RTC SRAM on boot
+const int MAX_BRIGHTNESS=15;
+int brightness=MAX_BRIGHTNESS;//load from RTC SRAM on boot
+int EEPROM_BRIGHTNESS_ADDRESS=1;
 
 //----- Real Time Clock -----
 #include <Wire.h>
 #include "RTClib.h" //RTC = Real Time Clock
 RTC_DS3231 rtc;
-Button button_minute_dec={A1,0,0,false,false,100};
-Button button_minute_inc={ 8,0,0,false,false,100};
-Button button_hour_dec={7,0,0,false,false,300};
-Button button_hour_inc={6,0,0,false,false,300};
+const int BUTTON_MINUTE_DEC=4;
+const int BUTTON_MINUTE_INC=5;
+const int BUTTON_HOUR_DEC=6;
+const int BUTTON_HOUR_INC=7;
 unsigned long last_update_s=0;//storage for the last Arduino time that an RTC timestamp was pushed live to 7-segment display
 //only check RTC roughly once a second for a time change to minimize processing time (maximize time available for sound buffering and reduce risk of sound gap when looping)
 
+//------ EEPROM ------
+#include <EEPROM.h>
 
 /*
  * Define macro to put error messages in flash memory
  */
-#define error(msg) error_P(PSTR(msg))
+//#define error(msg) error_P(PSTR(msg))
 
 // Function definitions (we define them here, but the code is below)
 void play(FatReader &dir);
@@ -119,20 +108,21 @@ void play(FatReader &dir);
 //////////////////////////////////// SETUP
 void setup(){
   //----- Debug -----
-  Serial.begin(115200);
+  Serial.begin(9600);
   
   //----- Clock Display -----
   alpha4.begin(0x70);  // pass in the address
   alpha4.clear();
   alpha4.writeDisplay();
+  brightness=EEPROM.read(EEPROM_BRIGHTNESS_ADDRESS);//assume value is correct, no limit checking
+  alpha4.setBrightness(brightness);
 
   //----- Buttons -----
-  pinMode(button_wav.pin,INPUT_PULLUP);
-  pinMode(button_brightness.pin,INPUT_PULLUP);
-  pinMode(button_minute.pin,INPUT_PULLUP);
-  pinMode(button_hour.pin,INPUT_PULLUP);
+  //assign pull ups to all pins, then read state: HIGH is_released, LOW is_pressed
+  for(int iter=0;iter<NUM_BUTTONS;iter++) pinMode(button_list[iter].pin,INPUT_PULLUP);
 
   //----- Audio Shield -----
+  seek_song_index=EEPROM.read(EEPROM_SONG_ADDRESS);//assume value is correct, no limit checking
   card.init();
   card.partialBlockRead(true);
   // Now find a FAT partition
@@ -164,6 +154,7 @@ void loop() {
  */
 void play(FatReader &dir) {
   FatReader file;
+  int curr_song_index=0;//index of the song currently being inspected from SD card
   while (dir.readDir(dirBuf) > 0) {    // Read every file in the directory one at a time
   
     // Skip it if not a subdirectory and not a .WAV file
@@ -178,118 +169,144 @@ void play(FatReader &dir) {
        Serial.write(' ');       // this is for prettyprinting, put spaces in front
     }
     if (!file.open(vol, dirBuf)) {        // open the file in the directory
-      error("file.open failed");          // something went wrong
+      //error("file.open failed");          // something went wrong
+      Serial.println("file.open failed");
     }
     
-    if (file.isDir()) {                   // check if we opened a new directory
-      putstring("Subdir: ");
-      printEntryName(dirBuf);
-      Serial.println();
-      dirLevel += 2;                      // add more spaces
-      // play files in subdirectory
-      play(file);                         // recursive!
-      dirLevel -= 2;    
-    }
-    else {
-      // Aha! we found a file that isnt a directory
-      putstring("Playing ");
-      printEntryName(dirBuf);              // print it out
-      if (!wave.create(file)) {            // Figure out, is it a WAV proper?
-        putstring(" Not a valid WAV");     // ok skip it
-      } else {
-        flag_go_to_prev_song=false;
-        flag_go_to_next_song=false;
-        while(loop_this_song())
+    if (!file.isDir()) {
+      songSeekLimitCheck();
+      if(curr_song_index==seek_song_index)//if looking at target song, then play it
+      {
+        if(is_booting) is_booting=false;
+        else
         {
-          wave.play();
-          while(wave.isplaying and loop_this_song())
-          {
-            updateButtonState();
-            updateTimeDisplay();
-          }
-          if(loop_this_song())
-            wave.seek(0);
-          else
-            wave.stop();
+          is_display_update=true;
+          flag_is_index_visible_to_user=true;
         }
-        /*
-        Serial.println();                  // Hooray it IS a WAV proper!
-        wave.play();                       // make some noise!
-        
-        uint8_t n = 0;
-        while (wave.isplaying) {// playing occurs in interrupts, so we print dots in realtime
-          putstring(".");
-          if (!(++n % 32))Serial.println();
-          delay(100);
-        }       
-        sdErrorCheck();                    // everything OK?
-        // if (wave.errors)Serial.println(wave.errors);     // wave decoding errors
-        */
+        EEPROM.put(EEPROM_SONG_ADDRESS,curr_song_index);
+        // Aha! we found a file that isnt a directory
+        putstring("Playing ");
+        printEntryName(dirBuf);              // print it out
+        if (!wave.create(file)) {            // Figure out, is it a WAV proper?
+          putstring(" Not a valid WAV");     // ok skip it
+        } else {
+          flag_is_change_song=false;
+          while(loop_this_song())
+          {
+            wave.play();
+            while(wave.isplaying and loop_this_song())
+            {
+              updateButtonState();
+              updateDisplay();
+            }
+            if(loop_this_song())
+              wave.seek(0);
+            else
+              wave.stop();
+          }
+        }
+      }
+      curr_song_index++;//increment when new song found
+    }
+  }
+  NUM_SONGS=curr_song_index;
+}
+
+bool loop_this_song()
+{
+  return !flag_is_change_song;
+}
+
+//given a brightness level, push it live to 7-segment display, and also save it to storeage EEPROM
+void addBrightness(bool is_inc)
+{
+  brightness+=is_inc?1:-1;
+  if(brightness<0) brightness=0;
+  if(brightness>MAX_BRIGHTNESS) brightness=MAX_BRIGHTNESS;
+  alpha4.setBrightness(brightness);
+  EEPROM.put(EEPROM_BRIGHTNESS_ADDRESS,brightness);
+}
+
+//add or subtract a minute
+void addMinute(bool is_inc)
+{
+  DateTime now = rtc.now();
+  DateTime future=DateTime(now + TimeSpan(0,0,is_inc?1:-1,-now.second()));//increment 1 minute, zero out the seconds
+  if(future.hour() != now.hour())//if incrementing caused the hour to change, then recompute with one less hour
+    future=DateTime(now + TimeSpan(0,is_inc?-1:1,is_inc?1:-1,-now.second()));
+  rtc.adjust(future);
+  is_display_update=true;
+}
+
+//add or subtract an hour
+void addHour(bool is_inc)
+{
+  DateTime now = rtc.now();
+  DateTime future (now + TimeSpan(0,is_inc?1:-1,0,0));//increment 1 hour, zero out the seconds
+  rtc.adjust(future);
+  is_display_update=true;
+}
+
+void changeSong(bool is_inc)
+{
+  last_song_select_ms=millis();
+  flag_is_change_song=true;
+  seek_song_index+=is_inc?1:-1;
+  songSeekLimitCheck();
+}
+
+//ensure seek_song_index is in range, if possible
+void songSeekLimitCheck()
+{
+  if(NUM_SONGS>=0)
+  {
+    if(seek_song_index<0) seek_song_index=NUM_SONGS-1;
+    if(seek_song_index>=NUM_SONGS) seek_song_index=0;//if seek_index is invalid, set it to a valid value - may require a loop through all songs on SD card first
+  }
+}
+
+//check state of all buttons, if any has been tapped or is being held, call the respective helper function for that button
+void updateButtonState()
+{
+  for(int iter=0;iter<NUM_BUTTONS;iter++)
+  {
+    if(updateButton(&(button_list[iter])))
+    {//fires when an update is needed: either because button was tapper or because it is being held
+      switch(iter)
+      {
+        case BUTTON_SONG_DEC:
+        case BUTTON_SONG_INC:
+          changeSong(iter==BUTTON_SONG_INC);
+        break;
+        case BUTTON_BRIGHTNESS_DEC:
+        case BUTTON_BRIGHTNESS_INC:
+          addBrightness(iter==BUTTON_BRIGHTNESS_INC);
+        break;
+        case BUTTON_MINUTE_DEC:
+        case BUTTON_MINUTE_INC:
+          addMinute(iter==BUTTON_MINUTE_INC);
+        break;
+        case BUTTON_HOUR_DEC:
+        case BUTTON_HOUR_INC:
+          addHour(iter==BUTTON_HOUR_INC);
+        break;
+        default:
+          //invalid case
+        break;
       }
     }
   }
 }
 
-void loop_this_song()
-{
-  return !flag_go_to_prev_song && !flag_go_to_next_song;
-}
-
-void updateButtonState()
-{
-  if(updateButton(&button_wav))
-  {
-    Serial.print("1W ");
-    Serial.print(button_wav.is_tap,DEC);
-    Serial.print(" ");
-    Serial.println(millis(),DEC);
-    loop_this_song=false;//set flag to progress to next song
-  }
-  if(updateButton(&button_brightness))
-  {
-    //Serial.print("2B ");
-    //Serial.println(millis(),DEC);
-    brightness--;
-    if(brightness<0) brightness=15;
-    if(brightness>15) brightness=0;
-    alpha4.setBrightness(brightness);
-  }
-  if(updateButton(&button_minute))
-  {
-    DateTime now = rtc.now();
-    DateTime future=DateTime(now + TimeSpan(0,0,1,-now.second()));//increment 1 minute, zero out the seconds
-    if(future.hour() != now.hour())//if incrementing caused the hour to change, then recompute with one less hour
-      future=DateTime(now + TimeSpan(0,-1,1,-now.second()));//increment 1 minute, zero out the seconds
-    rtc.adjust(future);
-    
-    //Serial.print("3M ");
-    //Serial.println(millis(),DEC);
-    //rtc_minute=rtc_minute+1;
-    //if(rtc_minute>=60) rtc_minute=0;
-    is_display_update=true;
-  }
-  if(updateButton(&button_hour))
-  {
-    DateTime now = rtc.now();
-    DateTime future (now + TimeSpan(0,1,0,0));//increment 1 hour, zero out the seconds
-    rtc.adjust(future);
-    
-    //Serial.print("4H ");
-    //Serial.println(millis(),DEC);
-    //rtc_hour=rtc_hour+1;
-    //if(rtc_hour>12) rtc_hour=1;
-    is_display_update=true;
-  }
-}
-
 //measure the live up/down state of the button
+//returns TRUE when it is time to do something in response to the button state being depressed (either tapped or held)
 bool updateButton(Button *button)
 {
   bool is_up=digitalRead((*button).pin);
   if((*button).is_up && !is_up)
   {//transition from released to pressed
     (*button).start_transition_ms=millis();//50 day roll over
-    (*button).last_action_ms=0;
+    (*button).last_hold_event_ms=0;
     (*button).is_tap=false;
   }
   (*button).is_up=is_up;
@@ -303,8 +320,8 @@ bool getIsUpdate(Button *button)
 {
   unsigned long now_ms=millis();
   unsigned long start_elapsed_ms=now_ms-(*button).start_transition_ms;
-  unsigned long hold_elapsed_ms=now_ms-(*button).last_action_ms;
-  unsigned long HOLD_PRESSED_MS=(*button).hold_press_delay_ms;
+  unsigned long hold_elapsed_ms=now_ms-(*button).last_hold_event_ms;
+  unsigned long HOLD_PRESSED_MS=(*button).hold_event_gap_ms;
   bool state_update=false;
   if(not (*button).is_up)
   {
@@ -316,7 +333,7 @@ bool getIsUpdate(Button *button)
     }
     if(start_elapsed_ms>HOLD_START_MS && hold_elapsed_ms>HOLD_PRESSED_MS)
     {//user is holding down the button
-      (*button).last_action_ms=now_ms;
+      (*button).last_hold_event_ms=now_ms;
       state_update=true;
       //Serial.print("B ");
       //Serial.print(start_elapsed_ms,DEC);
@@ -328,6 +345,41 @@ bool getIsUpdate(Button *button)
   return state_update;
 }
 
+//set the visible contents of the 4-element 7-segment display
+void updateDisplay()
+{
+  songIndexDisplay();
+  updateTimeDisplay();
+}
+
+//display the song index to the user right after they push the button
+void songIndexDisplay()
+{
+  if(is_display_update && flag_is_index_visible_to_user)
+  {
+    int carry=seek_song_index+1;//use temp variable and shave off decimal MSB
+    alpha4.writeDigitAscii(4,0);//turn off colon
+    bool is_zero=carry/1000==0;
+    alpha4.writeDigitAscii(0,is_zero?' ':((carry/1000)+'0'));
+    carry-=1000*(carry/1000);
+    is_zero=is_zero && (carry/100==0);
+    alpha4.writeDigitAscii(1,is_zero?' ':((carry/100)+'0'));
+    carry-=100*(carry/100);
+    is_zero=is_zero && (carry/10==0);
+    alpha4.writeDigitAscii(2,is_zero?' ':((carry/10)+'0'));
+    carry-=10*(carry/10);
+    alpha4.writeDigitAscii(3,carry+'0');
+    alpha4.writeDisplay();
+    is_display_update=false;
+  }
+  if(flag_is_index_visible_to_user && millis()>(last_song_select_ms+INDEX_USER_DISPLAY_MS))
+  {
+    flag_is_index_visible_to_user=false;
+    is_display_update=true;
+  }
+}
+
+//display the current time to the user, unless they just changed the song (and the index is visible), in which case leave the display as-is
 void updateTimeDisplay()
 {
   unsigned long time_ms=millis();
@@ -339,7 +391,7 @@ void updateTimeDisplay()
     rtc_minute=now.minute();
     last_update_s=time_ms;
   }
-  if(is_display_update)
+  if(is_display_update && !flag_is_index_visible_to_user)
   {
     char hour_ten=(rtc_hour%12+1)/10;
     char hour_one=(rtc_hour%12+1)%10;
@@ -350,7 +402,7 @@ void updateTimeDisplay()
     alpha4.writeDigitAscii(1,hour_one+'0');
     alpha4.writeDigitAscii(2,minute_ten+'0');
     alpha4.writeDigitAscii(3,minute_one+'0');
-    alpha4.writeDigitAscii(1,'8');//turn on colon in center of screen
+    alpha4.writeDigitAscii(4,1);//turn on colon in center of screen
     alpha4.writeDisplay();
   }
   is_display_update=false;
