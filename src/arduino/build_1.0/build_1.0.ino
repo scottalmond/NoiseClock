@@ -1,8 +1,37 @@
-//to do: make flow chart of button press states for /doc/
-//to do: make block diagram of major interfaces to peripreals: GPIO to buttons, SPI to wav shield, i2c, etc
-
-
-
+/**
+ * License
+ *   Copyright 2019 Scott Almond
+ *   Licensed under the Apache License, Version 2.0 (the "License");
+ *   you may not use this file except in compliance with the License.
+ *   You may obtain a copy of the License at
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *   Unless required by applicable law or agreed to in writing, software
+ *   distributed under the License is distributed on an "AS IS" BASIS,
+ *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *   See the License for the specific language governing permissions and
+ *   limitations under the License.
+ * 
+ * Purpose
+ *   This code displays the current time while playing a .wav file on a continuous loop out of either on-board speakers or via a headphone jack
+ * 
+ *   The front panel has 8 buttons: sound previous/next, brightness previous/next, minute previous/next, hour previous/next
+ *   .wav files are stored on an SD card and the user may go to the previous/next one by pressing the corresponding buttons
+ *   When the .wav selection is changed, the .wav index from the SD card is briefly displayed
+ *   Volume can be adjusted by rolling the thumbwheel along the edge of the device
+ *   The 12-hour time is displayed on a 4-element, 7-segment display
+ *   The time is stored on a Real Time Clock (RTC) between power cycles
+ *   The 7-segment screen can be changed in brightness by pressing the brightness buttons
+ *   The time can be changed with the increment/decrement minute/hour buttons
+ * 
+ * Usage
+ *   Compile this code for Duemilanove, flash to the 328p installed on a Duemilanove, then relocate 328p to PCB
+ * 
+ * Library Dependencies
+ *   WaveHC by William Greiman Version 1.0.0 https://github.com/adafruit/WaveHC
+ *   RTClib by Adafruit Version 1.2.0 https://github.com/adafruit/RTClib
+ *   Adafruit LED Backpack Library by Adafruit Version 1.1.6 https://github.com/adafruit/Adafruit_LED_Backpack
+ * 
+ */
 
 //----- Buttons -----
 /**
@@ -22,13 +51,16 @@
 struct Button{
   int pin; //pin number assignment according to Duemilanove
   bool is_up; //by default, pin is NOT depressed, is_up=TRUE
-  bool is_tap; //
+  bool is_tap; //set to TRUE after ensuring there is no bouncing on mechanical device
   unsigned long start_transition_ms; //millis() time when the button transitioned from UP to PRESSED
   unsigned long last_hold_event_ms; //millis() time when the last HOLD event fired
   unsigned long hold_event_gap_ms; //number of milliseconds between HOLD events being fired
 };
 
-const int NUM_BUTTONS=8;
+unsigned long DEBOUNCE_MS=100;//how long to wait until performing the action requested by the user to avoid debouncing artifacts
+unsigned long HOLD_START_MS=1000;//how long after performing first action before performing hold actions
+
+const int NUM_BUTTONS=8; //number of buttons on front panel
 Button button_list[NUM_BUTTONS]={
   { 9,0,0,false,false,500},//change which wav file is looping from the list on the SD card
   {A2,0,0,false,false,500},//song inc
@@ -40,10 +72,7 @@ Button button_list[NUM_BUTTONS]={
   { 6,0,0,false,false,300} //hour inc
 };
 
-unsigned long DEBOUNCE_MS=100;//how long to wait until performing the action requested by the user to avoid debouncing artifacts
-unsigned long HOLD_START_MS=1000;//how long after performing first action before performing hold actions
- 
-//----- Audio Shield -----
+//----- Audio -----
 #include <WaveHC.h>
 #include <WaveUtil.h>
 
@@ -67,7 +96,7 @@ int seek_song_index=-1;
 int NUM_SONGS=-1;//total number of songs on disk: not known until booted up
 bool is_booting=true;//don't display the song index on boot
 
-//----- Clock Display -----
+//----- 4-element 7-segment Display -----
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include "Adafruit_LEDBackpack.h"
@@ -97,13 +126,8 @@ unsigned long last_update_s=0;//storage for the last Arduino time that an RTC ti
 //------ EEPROM ------
 #include <EEPROM.h>
 
-/*
- * Define macro to put error messages in flash memory
- */
-//#define error(msg) error_P(PSTR(msg))
-
 // Function definitions (we define them here, but the code is below)
-void play(FatReader &dir);
+//void play(FatReader &dir);
 
 //////////////////////////////////// SETUP
 void setup(){

@@ -270,6 +270,9 @@ in-circuit programming would make things infinitely easier
 design consideration for the future: where is the center of mass?
 
 --
+//to do: make flow chart of button press states for /doc/
+//to do: make block diagram of major interfaces to peripreals: GPIO to buttons, SPI to wav shield, i2c, etc
+
 
 /**
  * Project requirements:
@@ -305,3 +308,6 @@ design consideration for the future: where is the center of mass?
  *    5.2. Using TBD library
  */
 
+WaveHC by William Greiman Version 1.0.0 https://github.com/adafruit/WaveHC
+RTClib by Adafruit Version 1.2.0 https://github.com/adafruit/RTClib
+Adafruit LED Backpack Library by Adafruit Version 1.1.6 https://github.com/adafruit/Adafruit_LED_Backpack
