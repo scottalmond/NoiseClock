@@ -25,6 +25,8 @@
  * 
  * Usage
  *   Compile this code for Duemilanove, flash to the 328p installed on a Duemilanove, then relocate 328p to PCB
+ *   Formatting SD Card: https://learn.adafruit.com/adafruit-wave-shield-audio-shield-for-arduino/sd-card
+ *   Create PCM 16-bit Mono 22 kHz .wav files in Audacity: https://learn.adafruit.com/adafruit-wave-shield-audio-shield-for-arduino/check-your-files
  * 
  * Library Dependencies
  *   WaveHC by William Greiman Version 1.0.0 https://github.com/adafruit/WaveHC
@@ -179,12 +181,18 @@ void play(FatReader &dir) {
   
     // Skip it if not a subdirectory and not a .WAV file
     if (!DIR_IS_SUBDIR(dirBuf) && strncmp_P((char *)&dirBuf.name[8], PSTR("WAV"), 3)) continue;
-
+    
+    if(!file.open(vol, dirBuf))
+    {
+      Serial.println("file.open failed");
+      continue;
+    }
+    
     if (!file.isDir()) {
       songSeekLimitCheck();
       if(curr_song_index==seek_song_index)//if looking at target song, then play it
       {
-        if(is_booting) is_booting=false;
+        if(is_booting) is_booting=false;//on first boot, do NOT display index of current song
         else
         {
           is_display_update=true;
@@ -192,14 +200,14 @@ void play(FatReader &dir) {
         }
         EEPROM.put(EEPROM_SONG_ADDRESS,curr_song_index);
         // Aha! we found a file that isnt a directory
-        putstring("Playing ");
+        Serial.println("Playing ");
         printEntryName(dirBuf);              // print it out
         if (!wave.create(file)) {            // Figure out, is it a WAV proper?
-          putstring(" Not a valid WAV");     // ok skip it
+          Serial.println(" Not a valid WAV");     // ok skip it
         } else {
           flag_is_change_song=false;
           while(loop_this_song())
-          {
+          {//play song in loop (repeat when done)
             wave.play();
             while(wave.isplaying and loop_this_song())
             {
